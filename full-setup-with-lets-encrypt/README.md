@@ -1,15 +1,5 @@
 # ResearchSpace with blazegraph, digilib, nginx and SSL certificates from LetsEncrypt
 
-## Prerequisites
+see setup [full-setup](../full-setup/README.md) for more details.
 
-* valid domain name with properly set DNS record
-
-## Setup
-
-Set `RESEARCHSPACE_HOST_NAME`, `COMPOSE_PROJECT_NAME` and `LETSENCRYPT_EMAIL` in the *.env* file.
-
-```
-chmod +x ./fix-folder-permissions.sh
-./fix-folder-permissions.sh
-docker-compose up -d
-```
+In adition you need to set `RESEARCHSPACE_HOST_NAME` to valid domain name with properly set DNS record, and `LETSENCRYPT_EMAIL` in the *.env* file.
