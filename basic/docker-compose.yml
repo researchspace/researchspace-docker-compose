@@ -1,0 +1,77 @@
+version: "2.2"
+services:
+  researchspace:
+    image: ${RESEARCHSPACE_IMAGE}
+    restart: unless-stopped
+    mem_limit: ${RESEARCHSPACE_MEMORY}
+    mem_reservation: ${RESEARCHSPACE_MEMORY}
+    ports:
+      - "10214:8080"
+    environment:
+      # 1. Connect researchspace instance to blazegraph instance, in this case we use internal hostname available only inside docker-compose create network.
+      # 2. Set default logging profile to log4j2, other possible options are log4j2-debug.xml, log4j2-trace.xml
+      # 3-5. Create storage needed for image upload functionality
+      # 6-8. Create temp storage needed for image upload functionality
+      # 7. Additional options provided in .env file
+      PLATFORM_OPTS: >-
+        -Dconfig.environment.sparqlEndpoint=http://blazegraph:8080/blazegraph/sparql
+        -Dlog4j.configurationFile=file:///var/lib/jetty/webapps/etc/log4j2.xml
+        -Dconfig.storage.images.type=nonVersionedFile
+        -Dconfig.storage.images.mutable=true
+        -Dconfig.storage.images.root=/images
+        -Dconfig.storage.tmp.type=nonVersionedFile
+        -Dconfig.storage.tmp.mutable=true
+        -Dconfig.storage.tmp.root=/tmp
+        ${RESEARCHSPACE_OPTS}
+      JAVA_OPTS: ${RESEARCHSPACE_JAVA_OPTS}
+    volumes:
+       # mount folder where uploaded images should be stored 
+       - ./researchspace/data/images:/images:rw
+       # runtime data folder with config files and ad-hoc templates 
+       - ./researchspace/runtime-data:/runtime-data
+    volumes_from:
+      - researchspace-app:ro
+    depends_on:
+      - blazegraph
+      - digilib 
+    logging:
+      driver: json-file
+      options:
+        max-size: "200k"
+        max-file: "10"
+
+  researchspace-app:
+    image: ${RESEARCHSPACE_APP_IMAGE}
+
+  blazegraph:
+    image: ${BLAZEGRAPH_IMAGE}
+    restart: unless-stopped
+    mem_limit: ${BLAZEGRAPH_MEMORY}
+    mem_reservation: ${BLAZEGRAPH_MEMORY}
+    ports:
+      - "10215:8080"
+    environment:
+      JAVA_OPTS: ${BLAZEGRAPH_JAVA_OPTS}
+    volumes:
+     - ./blazegraph/:/blazegraph-data
+    logging:
+     driver: json-file
+     options:
+      max-size: "200k"
+      max-file: "10"
+
+  digilib:
+    image: ${DIGILIB_IMAGE}
+    restart: unless-stopped
+    mem_limit: ${DIGILIB_MEMORY}
+    mem_reservation: ${DIGILIB_MEMORY}
+    environment:
+      BASEDIR_LIST: /var/lib/images
+      IIIF_IMAGE_BASE_URL: "http://localhost:10214/proxy/IIIF/"
+    volumes:
+      - ./researchspace/data/images/file:/var/lib/images:rw
+    logging:
+      driver: json-file
+      options:
+        max-size: "200k"
+        max-file: "10"
