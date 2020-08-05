@@ -3,17 +3,14 @@
 # endpoint for import
 sparqlEndpoint="http://localhost:10214/blazegraph/sparql"
 
-graphsFile="graphs.csv"
+graphsFile="graphs.tsv"
 
 i=0
 while IFS= read -r line; do
     graph=$(echo "$line" | tr -d '\n\r')
-    curl $sparqlEndpoint --data-urlencode "update=LOAD <file:$(pwd)/data/$i.nt> INTO GRAPH <$graph>"
+    curl $sparqlEndpoint --data-urlencode "update=LOAD <file:$(pwd)/data/$i.nt> INTO GRAPH $graph"
     (( i++ ))
 done < <(tail -n +2 $graphsFile)
-
-curl $sparqlEndpoint --data-urlencode "update=LOAD <file:$(pwd)/data/default.nt>"
-
 
 echo "Number of named graphs:"
 curl $sparqlEndpoint -H 'Accept:text/csv' --data-urlencode "query=SELECT (COUNT(DISTINCT ?g) AS ?count) { GRAPH ?g { ?s ?p ?o . }}"
