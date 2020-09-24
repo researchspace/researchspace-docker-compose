@@ -37,8 +37,6 @@ services:
 
        # runtime data folder with config files and ad-hoc templates 
        - ./researchspace/runtime-data:/runtime-data
-    volumes_from:
-      - researchspace-app:ro
 
     depends_on:
       - blazegraph
@@ -48,9 +46,6 @@ services:
       options:
         max-size: "200k"
         max-file: "10"
-
-  researchspace-app:
-    image: ${RESEARCHSPACE_APP_IMAGE}
 
   blazegraph:
     image: ${BLAZEGRAPH_IMAGE}
