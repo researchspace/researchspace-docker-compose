@@ -13,13 +13,13 @@ services:
       # 7. Additional options provided in .env file
       PLATFORM_OPTS: >-
         -Dconfig.environment.sparqlEndpoint=http://blazegraph:8080/blazegraph/sparql
-        -Dlog4j.configurationFile=file:///var/lib/jetty/webapps/etc/log4j2.xml
+        -Dlog4j.configurationFile=classpath:org/researchspace/logging/log4j2.xml
         -Dconfig.storage.images.type=nonVersionedFile
         -Dconfig.storage.images.mutable=true
         -Dconfig.storage.images.root=/images
         -Dconfig.storage.tmp.type=nonVersionedFile
         -Dconfig.storage.tmp.mutable=true
-        -Dconfig.storage.tmp.root=/tmp
+        -Dconfig.storage.tmp.root=/tmp-data
         ${RESEARCHSPACE_OPTS}
       JAVA_OPTS: ${RESEARCHSPACE_JAVA_OPTS}
 
@@ -34,6 +34,9 @@ services:
     volumes:
        # mount folder where uploaded images should be stored 
        - ./researchspace/data/images:/images:rw
+
+       # mount folder where temporary files should be stored
+       - ./researchspace/data/tmp:/tmp-data:rw
 
        # runtime data folder with config files and ad-hoc templates 
        - ./researchspace/runtime-data:/runtime-data
