@@ -6,19 +6,25 @@ services:
     mem_limit: ${RESEARCHSPACE_MEMORY}
     mem_reservation: ${RESEARCHSPACE_MEMORY}
     ports:
-      - "10214:8080"
+      - "10216:8080"
+    env_file:
+      - ./keycloak-sso.env
     environment:
       # 1. Connect researchspace instance to blazegraph instance, in this case we use internal hostname available only inside docker-compose create network.
       # 2. Set default logging profile to log4j2, other possible options are log4j2-debug.xml, log4j2-trace.xml
-      # 3-5. Create storage needed for image upload functionality
+      # 3-5. Create storage needed for assets upload functionality
       # 6-8. Create temp storage needed for image upload functionality
       # 7. Additional options provided in .env file
       PLATFORM_OPTS: >-
+        -Dconfig.environment.platformBaseIri=http://localhost:10216
         -Dconfig.environment.sparqlEndpoint=http://blazegraph:8080/blazegraph/sparql
-        -Dlog4j.configurationFile=classpath:org/researchspace/logging/log4j2.xml
-        -Dconfig.storage.images.type=nonVersionedFile
-        -Dconfig.storage.images.mutable=true
-        -Dconfig.storage.images.root=/images
+        -Dconfig.proxy.iiif-server.targetUri=http://cantaloupe:8182
+        -Dconfig.environment.sso=keycloak
+        -Dlog4j.configurationFile=classpath:org/researchspace/logging/log4j2-debug.xml
+        -Dconfig.storage.assets.type=fedora
+        -Dconfig.storage.assets.mutable=true
+        -Dconfig.storage.assets.root=/assets
+        -Dconfig.storage.assets.containerUri=http://fcrepo:8080/fcrepo/rest/
         -Dconfig.storage.tmp.type=nonVersionedFile
         -Dconfig.storage.tmp.mutable=true
         -Dconfig.storage.tmp.root=/tmp-data
@@ -26,7 +32,7 @@ services:
       JAVA_OPTS: ${RESEARCHSPACE_JAVA_OPTS}
     volumes:
        # mount folder where uploaded images should be stored 
-       - ./researchspace/data/images:/images:rw
+       - ./researchspace/data/assets:/assets:rw
 
        # mount folder where temporary files should be stored
        - ./researchspace/data/tmp:/tmp-data:rw
@@ -35,7 +41,9 @@ services:
        - ./researchspace/runtime-data:/runtime-data
     depends_on:
       - blazegraph
-      - digilib 
+      - fcrepo
+      - cantaloupe
+      - keycloak
     logging:
       driver: json-file
       options:
@@ -59,18 +67,58 @@ services:
       max-size: "200k"
       max-file: "10"
 
-  digilib:
-    image: ${DIGILIB_IMAGE}
-    restart: unless-stopped
-    mem_limit: ${DIGILIB_MEMORY}
-    mem_reservation: ${DIGILIB_MEMORY}
+  fcrepo:
+    image: ${FCREPO_IMAGE}
     environment:
-      BASEDIR_LIST: /var/lib/images
-      IIIF_IMAGE_BASE_URL: "http://localhost:10214/proxy/IIIF/"
+      FCREPO_OPTS: "-Dfcrepo.home=/fcrepo-data -Dfcrepo.log=WARN"
     volumes:
-      - ./researchspace/data/images/file:/var/lib/images:rw
+      - ./fcrepo:/fcrepo-data
+    ports:
+      - "10218:8080"
+    logging:
+     driver: json-file
+     options:
+      max-size: "200k"
+      max-file: "10"
+
+  cantaloupe:
+    image: ${CANTALOUPE_IMAGE}
+    restart: unless-stopped
+    mem_limit: ${CANTALOUPE_MEMORY}
+    mem_reservation: ${CANTALOUPE_MEMORY}
+    environment:
+      CANTALOUPE_BASE_URI: "http://localhost:10216/proxy/iiif-server"
+      CANTALOUPE_SOURCE_STATIC: "HttpSource"
+      CANTALOUPE_HTTPSOURCE_BASICLOOKUPSTRATEGY_URL_PREFIX: "http://fcrepo:8080/fcrepo/rest/"
+      CANTALOUPE_PROCESSOR_STREAM_RETRIEVAL_STRATEGY: "CacheStrategy"
+    volumes:
+      - ./cantaloupe/cache:/var/cache/cantaloupe:rw
+    depends_on:
+      - fcrepo
     logging:
       driver: json-file
       options:
         max-size: "200k"
         max-file: "10"
+
+  keycloak:
+    image: ${KEYCLOAK_IMAGE}
+    restart: unless-stopped
+    mem_limit: ${KEYCLOAK_MEMORY}
+    mem_reservation: ${KEYCLOAK_MEMORY}
+    ports:
+      - "10217:8080"
+    environment:
+      KEYCLOAK_FRONTEND_URL: "http://localhost:10217/auth/"
+      DB_VENDOR: "H2"
+      KEYCLOAK_USER: "admin"
+      KEYCLOAK_PASSWORD: "admin"
+      KEYCLOAK_IMPORT: "/tmp/keycloak-realm.json"
+    volumes:
+      - ./keycloak-realm.json:/tmp/keycloak-realm.json:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "200k"
+        max-file: "10"
+
