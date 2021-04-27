@@ -12,11 +12,13 @@ services:
       # 6-8. Create temp storage needed for image upload functionality
       # 7. Additional options provided in .env file
       PLATFORM_OPTS: >-
+        -Dconfig.environment.platformBaseIri=https:${RESEARCHSPACE_HOST_NAME}
         -Dconfig.environment.sparqlEndpoint=http://blazegraph:8080/blazegraph/sparql
         -Dlog4j.configurationFile=classpath:org/researchspace/logging/log4j2.xml
-        -Dconfig.storage.images.type=nonVersionedFile
-        -Dconfig.storage.images.mutable=true
-        -Dconfig.storage.images.root=/images
+        -Dconfig.storage.assets.type=fedora
+        -Dconfig.storage.assets.mutable=true
+        -Dconfig.storage.assets.root=/assets
+        -Dconfig.storage.assets.containerUri=http://fcrepo:8080/fcrepo/rest/
         -Dconfig.storage.tmp.type=nonVersionedFile
         -Dconfig.storage.tmp.mutable=true
         -Dconfig.storage.tmp.root=/tmp-data
@@ -38,7 +40,8 @@ services:
        - ./researchspace/runtime-data:/runtime-data
     depends_on:
       - blazegraph
-      - digilib 
+      - fcrepo
+      - cantaloupe
     logging:
       driver: json-file
       options:
@@ -60,21 +63,40 @@ services:
       max-size: "200k"
       max-file: "10"
 
-  digilib:
-    image: ${DIGILIB_IMAGE}
-    restart: unless-stopped
-    mem_limit: ${DIGILIB_MEMORY}
-    mem_reservation: ${DIGILIB_MEMORY}
+  fcrepo:
+    image: ${FCREPO_IMAGE}
     environment:
-      BASEDIR_LIST: /var/lib/images
-      IIIF_IMAGE_BASE_URL: "https://${RESEARCHSPACE_HOST_NAME}/proxy/IIIF/"
+      FCREPO_OPTS: "-Dfcrepo.home=/fcrepo-data -Dfcrepo.log=WARN"
     volumes:
-      - ./researchspace/data/images/file:/var/lib/images:rw
+      - ./fcrepo:/fcrepo-data
+    ports:
+      - "10218:8080"
+    logging:
+     driver: json-file
+     options:
+      max-size: "200k"
+      max-file: "10"
+
+  cantaloupe:
+    image: ${CANTALOUPE_IMAGE}
+    restart: unless-stopped
+    mem_limit: ${CANTALOUPE_MEMORY}
+    mem_reservation: ${CANTALOUPE_MEMORY}
+    environment:
+      CANTALOUPE_BASE_URI: "http://localhost:10216/proxy/iiif-server"
+      CANTALOUPE_SOURCE_STATIC: "HttpSource"
+      CANTALOUPE_HTTPSOURCE_BASICLOOKUPSTRATEGY_URL_PREFIX: "http://fcrepo:8080/fcrepo/rest/"
+      CANTALOUPE_PROCESSOR_STREAM_RETRIEVAL_STRATEGY: "CacheStrategy"
+    volumes:
+      - ./cantaloupe/cache:/var/cache/cantaloupe:rw
+    depends_on:
+      - fcrepo
     logging:
       driver: json-file
       options:
         max-size: "200k"
         max-file: "10"
+
 
   # see https://github.com/nginx-proxy/nginx-proxy
   nginx:
